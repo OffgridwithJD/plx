@@ -30,32 +30,39 @@ These follow from running as plpgsql and are not specific to any one dialect.
 - **Function-scoped locals.** plx hoists every local declaration into a single
   plpgsql `DECLARE` block, so locals are visible for the whole function. There is
   no per-block (per-`{}`, per-`if`) scope, and a name cannot be redeclared with a
-  new type partway through.
+  new type partway through. plxlua keeps Lua's block scope by giving a local
+  that shadows another, or that is redeclared with a new type, its own plpgsql
+  variable.
 - **SQL semantics, not the source language's.** Decimal literals are exact
   `numeric`, not IEEE 754 floating point. Comparisons use SQL three-valued logic,
   so a comparison involving NULL is unknown rather than false, and `==`/`===`
   become `=`. Integer division and modulo truncate toward zero. Conditions must
   be boolean expressions; source-language "truthiness" (a bare value used as a
-  condition) is not emulated. Interpolating a NULL propagates it: the value is
-  concatenated as-is, so the whole string becomes NULL the way SQL `||` does.
+  condition) is not emulated, except that plxlua treats a parameter or local
+  of a known non-boolean type used as a condition as a nil test. Interpolating
+  a NULL propagates it: the value is concatenated as-is, so the whole string
+  becomes NULL the way SQL `||` does.
   Two exceptions. A message being built for `RAISE` keeps each interpolated
   value as an empty string, so one NULL cannot swallow the message. And
-  `plxcobol`'s `STRING-APPEND` does not propagate, because it builds its string
-  through the `plx_strbuild` accumulator, whose append treats a NULL as nothing
-  to append by design.
+  `plxcobol`'s `STRING-APPEND` and `plxlua`'s `s = s .. e` do not propagate,
+  because they build their string through the `plx_strbuild` accumulator, whose
+  append treats a NULL as nothing to append by design.
 - **String concatenation with `+` is not string concatenation.** In every dialect
   `+` is SQL numeric addition. Use the dialect's string form: interpolation
-  (Ruby/PHP/Python/JS/TS), `||`, or `CONCAT(...)`.
+  (Ruby/PHP/Python/JS/TS), `..` (Lua), `||`, or `CONCAT(...)`.
 - **Type inference is limited.** Where a dialect infers a local's type from its
   initializer (`x = 5`, `x := 5`, `let x = ...`), plx infers only from a literal
   (int, decimal, string, boolean), an array literal, or a direct type
-  conversion. When the right-hand side is a call or a compound expression, declare
-  the type explicitly (`x #:: int`, `var x T`, `let x: T`, a `DECLARE`).
+  conversion. plxlua also infers from a typed variable and from the operators
+  its chapter lists. When the right-hand side is a call or a compound
+  expression, declare the type explicitly (`x #:: int`, `var x T`, `let x: T`,
+  `local x --:: int`, a `DECLARE`).
 - **String-builder acceleration needs PostgreSQL 18.** plx lowers the dialect
   append operators (`<<`, `.=`, `+=`, `STRING-APPEND`) onto `plx_strbuild` for
-  amortized-O(1) building. The in-place path relies on a PostgreSQL 18 planner
-  hook; on 13 through 17 the result is correct but the append is O(n^2), the same
-  as plain concatenation. See [COMPATIBILITY.md](COMPATIBILITY.md).
+  amortized-O(1) building, as is plxlua's `s = s .. e` on a string local. The
+  in-place path relies on a PostgreSQL 18 planner hook; on 13 through 17 the
+  result is correct but the append is O(n^2), the same as plain concatenation.
+  See [COMPATIBILITY.md](COMPATIBILITY.md).
 - **Runtime errors point at the generated plpgsql.** plpgsql requires all
   declarations at the top, so line numbers in a runtime error refer to the
   transpiled body, not your dialect source. `plx_source()` recovers the embedded
@@ -69,9 +76,9 @@ These follow from running as plpgsql and are not specific to any one dialect.
   DIAGNOSTICS`). See [PARITY.md](PARITY.md) for the construct-by-construct matrix.
 
 A dialect gives you its syntax over SQL semantics, not its standard library.
-With the exception of the `fmt`/`strings`/`math`/`strconv` subset plxgo maps, a
-method or library call in a body is passed through and has to name a function
-PostgreSQL actually has. `s.upcase`, `s.toUpperCase()`, `s.upper()` and
+With the exception of the `fmt`/`strings`/`math`/`strconv` subset plxgo maps and
+the `string`/`math`/`table` subset plxlua maps, a method or library call in a
+body is passed through and has to name a function PostgreSQL actually has. `s.upcase`, `s.toUpperCase()`, `s.upper()` and
 `strtoupper($s)` all transpile without complaint and then fail when the
 function is called; write `upper(s)` instead. The same applies to any other
 library call you would reach for out of habit.
@@ -137,6 +144,23 @@ The per-dialect chapter is authoritative; this is a quick reference.
   do so either: `%x`, `%o`, `%b`, `%e` and `%q` all produce the operand's text,
   so `fmt.Sprintf("%x", 255)` yields `255` and not `ff`. Convert explicitly (for
   example `to_hex`) where the representation matters.
+
+### plxlua ([chapter](plxlua.md))
+
+- Function definitions (`function f()`, `local function`, anonymous functions)
+  other than `pcall(function() ... end)`; closures.
+- Metatables, coroutines, and tables as maps (keyed constructors, `pairs`).
+- Multiple return values (except into OUT parameters), varargs (`...`),
+  `select`.
+- `goto` and labels other than the loop idioms (`goto continue` with
+  `::continue::` ending the body, and a break target right after a loop).
+- The `os`, `io`, `debug`, `package`, `coroutine` and `utf8` libraries; Lua
+  patterns (`string.find`, `string.match`, `string.gsub`); only a subset of
+  `string`, `math` and `table` is mapped.
+- Lua's integer/float subtypes: `/` and `%` follow SQL (`7 / 2` is `3`, `-7 % 2`
+  is `-1`), and `and`/`or` in a value give a boolean except for the
+  `x or d`, `c and a or b` and `c and v or d` idioms.
+- `ipairs` visits NULL elements instead of stopping at the first nil.
 
 ### plxcobol ([chapter](plxcobol.md))
 

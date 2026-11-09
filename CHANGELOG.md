@@ -78,6 +78,25 @@ PUBLIC has USAGE by default).
   after `finally` carries the location of the re-raise in its `CONTEXT`, not
   the original statement's. Only functions created or replaced after upgrading
   are affected; stored functions keep the plpgsql they were created with.
+### Added
+
+- **`plxlua`, a Lua dialect** (extension 3.0.0). Lua's keyword-`end` blocks,
+  `local` declarations with type inference and `--::` annotations, `<const>`,
+  `if`/`elseif`, `while`, `repeat ... until`, the numeric `for` (any step) and
+  `for ... in query(...)` / `ipairs(...)`, the `goto continue` idiom, and
+  `return` into OUT parameters. Errors are raised with `error(...)`,
+  `error{message = ..., sqlstate = ...}`, `assert` and `print`, and handled
+  with `pcall(function() ... end)`, whose `err` carries `err.sqlstate` and the
+  other diagnostics fields; `error(err)` raises a caught error again. In
+  expressions, `..`, `~=`, `nil`, `#`, table constructors as arrays, `//`, the
+  `x or d`, `c and a or b` and `c and v or d` idioms, and a subset of the
+  `string`, `math` and `table` libraries. Locals keep Lua's block scope, and
+  `s = s .. e` uses the string builder. See [doc/plxlua.md](doc/plxlua.md).
+- The shared lexer recognizes Lua's lexemes (`--` and `--[[ ]]` comments,
+  `[[ ]]` long strings, Lua operators) behind surface flags, and a dialect can
+  supply its own expression rewriter and string-literal decoder to the shared
+  emitter. Other dialects are unchanged.
+
 ### Changed (breaking; for 3.0)
 
 - **An interpolated value in a SQL argument is bound, never spliced as SQL.**
