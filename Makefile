@@ -30,6 +30,8 @@ differentialcheck:
 	PLX_PSQL="$(shell $(PG_CONFIG) --bindir)/psql" $(PLX_PYTHON) test/differential.py
 	PLX_PSQL="$(shell $(PG_CONFIG) --bindir)/psql" PGDATABASE=contrib_regression \
 		$(PLX_PYTHON) test/finally_diff.py 300 1
+	PLX_PSQL="$(shell $(PG_CONFIG) --bindir)/psql" PGDATABASE=contrib_regression \
+		$(PLX_PYTHON) test/finally_diff.py 300 1 plxcsharp
 
 # Check META.json against the PGXN Meta Spec. PGXN validates at upload time,
 # which is after a release is tagged and published, so check it before then.

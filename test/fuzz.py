@@ -13,7 +13,7 @@ import os, random, subprocess, sys
 PSQL = "/usr/local/pgsql/bin/psql"
 ENV = dict(os.environ, PGHOST=os.environ.get("PGHOST", "/tmp"), PGUSER="postgres")
 DIALECTS = ["plxruby", "plxphp", "plxjs", "plxpython3", "plxcobol", "plxplsql",
-            "plxts", "plxtsql", "plxgo"]
+            "plxts", "plxtsql", "plxgo", "plxcsharp"]
 random.seed(20260714)
 
 SEEDS = {
@@ -94,6 +94,17 @@ SEEDS = {
   "DECLARE @n int = 4;\nRETURN IIF(@n > 0, CONVERT(varchar, @n), ISNULL(NULL, 'x'));",
   "DECLARE @a int, @b int;\nSELECT @a = 10, @b = 32;\nRETURN @a + @b;",
  ],
+ "plxcsharp": [
+  "return a + b * 2;",
+  "long total = 0;\nfor (int i = 1; i <= n; i++)\n{\n    total += i;\n}\nreturn total;",
+  'string g;\nif (a > 0) g = "A";\nelse if (a < 0) { g = "B"; }\nelse g = "C";\nreturn g;',
+  'string s = $"hi {x} there {(y > 1 ? "a" : "b")} {z:F2}";\nreturn s + @"C:\\p" + """\n    raw\n    """;',
+  'foreach (var r in query($"SELECT a FROM t WHERE b = {x}")) { y += r.a; }\nreturn y;',
+  'try { return 1 / x; }\ncatch (DivideByZeroException e) { Console.WriteLine(e.Message); throw; }\ncatch (PostgresException e) when (e.SqlState == "23505") { return -1; }\nfinally { perform("SELECT 1"); }',
+  'switch (n) { case 1: case 2: r = "x"; break; default: { r = "y"; break; } }\nreturn r;',
+  'var sb = new StringBuilder();\ndo { sb.Append(i).AppendLine(); i++; } while (i < 3);\nint[] a = {1, 2};\nreturn sb.ToString() + a[0] + s.Substring(1).ToUpper() + (x switch { 1 => "a", _ => "b" });',
+  'throw new PostgresException("m", "ERROR", "ERROR", "P0001", detail: $"d {x}");',
+ ],
  "plxgo": [
   "return 1 + 2 * 3",
   "acc := 1\nfor i := 1; i <= 10; i++ {\n\tacc *= i\n}\nreturn acc",
@@ -115,7 +126,10 @@ SPECIALS = [b'"', b"'", b"`", b"#{", b"${", b"{$", b"*/", b"/*", b"\\", b"(", b"
             b'@', b'@@', b':=', b'++', b'--', b'&&', b'||', b'range ', b'func ',
             b'DECLARE ', b'BEGIN TRY', b'END TRY', b'BEGIN CATCH', b'THROW ',
             b'SET ', b'PRINT ', b'switch ', b'case ', b'default:', b'[]int{',
-            b'else if ', b'defer ', b'go ', b'RAISERROR(']
+            b'else if ', b'defer ', b'go ', b'RAISERROR(', b'$"', b'@"', b'$@"',
+            b'"""', b'$$"""', b"'\\u", b'catch (', b'when (',
+            b'foreach (', b'yield return ', b'?? ', b'?.', b'=>', b' switch {',
+            b'new[] {', b'{{']
 
 def mutate(s):
     b = bytearray(s.encode("utf-8", "ignore"))
@@ -210,6 +224,38 @@ def pathological():
      ("plxgo", "switch {\n" + "case 1==1:\n\tx := 1\n" * 3000 + "}"),
      ("plxgo", "s := []int{" + "1, " * 50000 + "2}"),
      ("plxgo", "for i := 0; i < 3; " + "i++" * 3000 + " {}"),
+     # plxcsharp
+     ("plxcsharp", "if (x) {" * 4000 + "}" * 4000),
+     ("plxcsharp", "return " + "(" * 8000 + "1"),
+     ("plxcsharp", 'return $"' + "{" * 3000 + "x" + "}" * 3000 + '";'),
+     ("plxcsharp", 'return ' + '$"{' * 3000 + "1" + '}"' * 3000 + ";"),
+     ("plxcsharp", 'return $$' + '"' * 3 + "{{" * 2000 + "x" + "}}" * 2000 + '"' * 3 + ';'),
+     ("plxcsharp", 'return ' + '"' * 3 + '\n' + "    line\n" * 20000),   # no closing line
+     ("plxcsharp", 'return @"' + "a" * 200000),                     # unterminated verbatim
+     ("plxcsharp", 'return "' + "\\u12" * 50000),                   # bad escapes
+     ("plxcsharp", "/*" + "a" * 200000),
+     ("plxcsharp", "return " + "a ? b : " * 4000 + "c;"),
+     ("plxcsharp", "return " + "x ?? " * 4000 + "y;"),
+     ("plxcsharp", "return " + "!" * 8000 + "x;"),
+     ("plxcsharp", "return " + "- " * 8000 + "x;"),
+     ("plxcsharp", "return (" + "1 + " * 50000 + "1);"),
+     ("plxcsharp", "return " + "a == " * 20000 + "b;"),
+     ("plxcsharp", 'return "a"' + ".PadLeft(1)" * 60 + ";"),
+     ("plxcsharp", "return s" + ".Trim()" * 5000 + ";"),
+     ("plxcsharp", "return a" + "[0]" * 5000 + ";"),
+     ("plxcsharp", "int x = 0;" + " x++;" * 20000 + " return x;"),
+     ("plxcsharp", "for (int i = 0; i < n; i++) {" * 3000 + "}" * 3000),
+     ("plxcsharp", "switch (x) {" + " case 1: x = 2; break;" * 5000 + " }"),
+     ("plxcsharp", "try { x = 1; }" + " catch (Exception e) { x = 2; }" * 3000),
+     ("plxcsharp", "int[] a = {" + "1, " * 50000 + "2}; return a[0];"),
+     ("plxcsharp", "execute(" + "x, " * 40 + "y);"),
+     ("plxcsharp", "foreach (var r in query(" + "x, " * 40 + "y)) { }"),
+     ("plxcsharp", "return string.Format(\"" + "{0}" * 3000 + "\", 1);"),
+     ("plxcsharp", "else " * 5000),
+     ("plxcsharp", "$" * 5000),
+     ("plxcsharp", "@" * 5000),
+     ("plxcsharp", '"' * 5001),
+     ("plxcsharp", "'" * 5001),
      # crash regressions (all must error cleanly, never crash the backend)
      ("plxjs", "return call(`p`, " + ", ".join(str(i) for i in range(50)) + ");"),
      ("plxphp", "execute($s, " + ", ".join("$b" for _ in range(40)) + ");"),
