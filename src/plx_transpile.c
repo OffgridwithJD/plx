@@ -1879,6 +1879,8 @@ plx_emit_try(Ctx *cx, StringInfo o, int ind, char *body, int nrescue,
 	int			in = fin ? ind + 1 : ind;
 	int			ncodes = 0;
 	int			code;
+	char	   *body_in = body,
+			   *arms_in = arms;
 
 	body = fin_resolve(cx, f, body, fin, &ncodes);
 	arms = fin_resolve(cx, f, arms, fin, &ncodes);
@@ -1923,6 +1925,15 @@ plx_emit_try(Ctx *cx, StringInfo o, int ind, char *body, int nrescue,
 	}
 	plx_indent(o, in);
 	appendStringInfoString(o, "END;\n");
+	/*
+	 * A resolved copy is not needed once appended. Freeing it keeps nested
+	 * try blocks with an exit through every level from holding one copy of
+	 * the body per level.
+	 */
+	if (body != body_in)
+		pfree(body);
+	if (arms != arms_in)
+		pfree(arms);
 	if (!fin)
 		return;
 

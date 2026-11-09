@@ -132,6 +132,10 @@ PUBLIC has USAGE by default).
   failed with `query has no destination for result data`: the test for a
   row-returning statement read the f-string's `f` prefix as the start of the
   SQL. A `SELECT` built with an f-string now runs through `PERFORM`.
+- Nested `try`/`finally` blocks with a `return`, `break` or `continue` leaving
+  every level kept one copy of the enclosed body per level while the function
+  was created, so memory grew with nesting depth times body size (about 1 GB
+  for 400 levels around 150 KB). The copies are now freed once emitted.
 - A `finally`/`ensure` body that raised an error on the normal path ran a
   second time from the error path. It now runs once.
 - plxpython3 `call(f"...")` emitted an unterminated quoted identifier. An
