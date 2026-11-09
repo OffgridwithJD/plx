@@ -142,6 +142,8 @@ typedef struct PlxCtx
 	bool		diag_msg;		/* rewriting a RAISE message: interpolate NULL as '' */
 	bool		retset;
 	MemoryContext mcx;			/* caller-supplied scratch context (reserved) */
+	void	   *fe;				/* front-end private state; NULL unless the
+								 * dialect's parse_body sets it */
 } Ctx;
 
 /* ------------------------------------------------------ engine entry points */
