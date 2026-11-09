@@ -112,6 +112,17 @@ PUBLIC has USAGE by default).
   plpgsql `CASE` statement without `ELSE` does. It now does nothing, as in the
   source language. plxplsql keeps the error, which is also Oracle's behaviour.
 - plxgo `strconv.Itoa(x)` lowered to `(x)::integer` instead of `(x)::text`.
+### Security
+
+- **Revoking plpgsql now revokes plx.** A plx function is stored and run as
+  plpgsql, but a role that kept USAGE on a plx language could still create
+  plpgsql functions and run DO blocks after
+  `REVOKE USAGE ON LANGUAGE plpgsql FROM PUBLIC` (for example with
+  `DO LANGUAGE plxplsql`, or a body that already carried the transpiled
+  header). `CREATE FUNCTION` and `DO` in a plx language now also require USAGE
+  on plpgsql, failing with `permission denied for language plpgsql`. As with
+  plpgsql, functions that already exist keep running, and superusers are
+  unaffected.
 
 ## [2.0.1] - 2026-08-25
 
