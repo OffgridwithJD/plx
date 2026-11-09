@@ -2630,7 +2630,7 @@ plx_sql_arg(Ctx *cx, int *as, int *ae, int n, bool force_dynamic,
 static bool
 sql_is_row_returning(Tok *tk)
 {
-	const char *s = tk->s + 1;
+	const char *s = tk->s + (tk->fstr ? 2 : 1);	/* past [f]" */
 	const char *e = tk->s + tk->len - 1;
 	static const char *verbs[] = {"select", "with", "values", "table", NULL};
 	int			i;
