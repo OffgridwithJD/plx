@@ -101,8 +101,37 @@ PUBLIC has USAGE by default).
   until it uses `ident()` or `raw()`. Stored functions are unaffected until
   their DDL is run again. See doc/DYNAMIC-SQL.md.
 
+### Added
+
+- **plxcsharp, a C# dialect** (`LANGUAGE plxcsharp`). Declarations put the type
+  first and C# types map to PostgreSQL types (`int` to `integer`, `string` to
+  `text`, `decimal` to `numeric`, `DateTime` to `timestamp`, `T[]` to arrays,
+  any other name used as a PostgreSQL type); `var` takes the type of its value.
+  Regular, verbatim (`@"..."`), raw (`"""..."""`) and interpolated (`$"..."`)
+  strings all work, and an interpolated string passed to `query`, `execute` and
+  the other SQL intrinsics is a SQL template whose values are bound. `+` is
+  string concatenation when an operand is known to be a string. Statements:
+  `if`, `while`, `do`/`while`, `for` (a plain counting loop becomes an integer
+  `FOR`; any other keeps C# semantics, including `continue`), `foreach` over a
+  query, an array or a string, `switch` (a nested `break` leaves the switch) and
+  switch expressions, `try`/`catch`/`finally` with exception classes and
+  `when (e.SqlState == ...)` filters mapped to plpgsql conditions, `throw`
+  (Npgsql's `PostgresException` for a chosen SQLSTATE, detail and hint),
+  `yield return` for set-returning functions, `Console.WriteLine` as
+  `RAISE NOTICE`, `StringBuilder` and `s += x` on the plx string builder, and a
+  small set of mapped .NET members (`string`, `Math`, `Convert`, `DateTime`,
+  `Guid`, ...). See doc/plxcsharp.md.
+- `test/finally_diff.py` takes an optional dialect argument. With `plxcsharp` it
+  writes each random program in C# as well (counting and general `for` loops,
+  `do`/`while`, `switch`, nested `try`/`catch`/`finally`) and checks the result
+  against real Python; `make differentialcheck` runs it.
+
 ### Fixed
 
+- plxpython3 `perform(f"SELECT ...")` ran the query as a bare statement and
+  failed with `query has no destination for result data`: the test for a
+  row-returning statement read the f-string's `f` prefix as the start of the
+  SQL. A `SELECT` built with an f-string now runs through `PERFORM`.
 - A `finally`/`ensure` body that raised an error on the normal path ran a
   second time from the error path. It now runs once.
 - plxpython3 `call(f"...")` emitted an unterminated quoted identifier. An

@@ -44,13 +44,17 @@ These follow from running as plpgsql and are not specific to any one dialect.
   through the `plx_strbuild` accumulator, whose append treats a NULL as nothing
   to append by design.
 - **String concatenation with `+` is not string concatenation.** In every dialect
-  `+` is SQL numeric addition. Use the dialect's string form: interpolation
-  (Ruby/PHP/Python/JS/TS), `||`, or `CONCAT(...)`.
+  but plxcsharp, `+` is SQL numeric addition. Use the dialect's string form:
+  interpolation (Ruby/PHP/Python/JS/TS), `||`, or `CONCAT(...)`. plxcsharp
+  resolves the operand types, so `+` there is `||` when an operand is known to
+  be a string and numeric addition otherwise.
 - **Type inference is limited.** Where a dialect infers a local's type from its
   initializer (`x = 5`, `x := 5`, `let x = ...`), plx infers only from a literal
   (int, decimal, string, boolean), an array literal, or a direct type
   conversion. When the right-hand side is a call or a compound expression, declare
   the type explicitly (`x #:: int`, `var x T`, `let x: T`, a `DECLARE`).
+  plxcsharp's `var` also takes the type of a typed variable, a cast or a mapped
+  .NET member.
 - **String-builder acceleration needs PostgreSQL 18.** plx lowers the dialect
   append operators (`<<`, `.=`, `+=`, `STRING-APPEND`) onto `plx_strbuild` for
   amortized-O(1) building. The in-place path relies on a PostgreSQL 18 planner
@@ -69,9 +73,9 @@ These follow from running as plpgsql and are not specific to any one dialect.
   DIAGNOSTICS`). See [PARITY.md](PARITY.md) for the construct-by-construct matrix.
 
 A dialect gives you its syntax over SQL semantics, not its standard library.
-With the exception of the `fmt`/`strings`/`math`/`strconv` subset plxgo maps, a
-method or library call in a body is passed through and has to name a function
-PostgreSQL actually has. `s.upcase`, `s.toUpperCase()`, `s.upper()` and
+With the exception of the `fmt`/`strings`/`math`/`strconv` subset plxgo maps and
+the .NET subset plxcsharp maps, a method or library call in a body is passed
+through and has to name a function PostgreSQL actually has. `s.upcase`, `s.toUpperCase()`, `s.upper()` and
 `strtoupper($s)` all transpile without complaint and then fail when the
 function is called; write `upper(s)` instead. The same applies to any other
 library call you would reach for out of habit.
@@ -137,6 +141,28 @@ The per-dialect chapter is authoritative; this is a quick reference.
   do so either: `%x`, `%o`, `%b`, `%e` and `%q` all produce the operand's text,
   so `fmt.Sprintf("%x", 255)` yields `255` and not `ff`. Convert explicitly (for
   example `to_hex`) where the representation matters.
+
+### plxcsharp ([chapter](plxcsharp.md))
+
+- Methods, local functions, lambdas, classes, structs, records, interfaces,
+  enums, namespaces, `using`, attributes, generics, preprocessor directives.
+- `object`, `dynamic`, tuples, `ref`/`out` arguments, pointers, LINQ, and the
+  collection classes (`List<T>`, `Dictionary<K,V>`); use arrays or SQL.
+- `new` other than for arrays, `new StringBuilder()`, and the exception after
+  `throw`.
+- `goto`, labels, `lock`, `async`/`await`, `checked`/`unchecked`.
+- `case` patterns (`case int n:`, `case > 5:`, `case null:`, `when` guards);
+  switch-expression and `is` patterns beyond constants, `_`, `null`, `not null`
+  and `< <= > >=`.
+- Interpolation format specifiers other than `:F`, and alignment.
+- `catch` of exception classes other than the mapped ones, and `when` filters
+  other than `e.SqlState` comparisons.
+- .NET members beyond the mapped subset (`string`, `Math`, `Convert`,
+  `DateTime`, `Guid`, `StringBuilder`, ...).
+- A NULL operand of a string `+` makes the result NULL, where C# treats null as
+  an empty string; `string.Concat` keeps the C# behaviour.
+- Local names that PostgreSQL or PL/pgSQL reserve (`user`, `order`, `limit`,
+  `end`, ...), and two locals whose names differ only in case.
 
 ### plxcobol ([chapter](plxcobol.md))
 

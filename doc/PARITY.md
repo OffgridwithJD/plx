@@ -39,6 +39,15 @@ becomes `SELECT c INTO x FROM t`, `PRINT`/`RAISERROR`/`THROW` become `RAISE`, an
 reachable, but through T-SQL surface syntax rather than a one-to-one keyword map.
 See [plxtsql.md](plxtsql.md).
 
+**plxcsharp** (C#) is not shown as a separate column because most of its
+spellings are those of the plxjs column, with C# declarations and statements on
+top: type-first declarations (`int x = 0;`) hoist into the `DECLARE` block,
+`foreach` iterates a query or an array, `switch` sections end in `break`,
+`do`/`while` and the general `for` keep their C# semantics, `yield return` is
+`RETURN NEXT`, and `throw` and `catch` (exception classes and `when` filters)
+become `RAISE` and exception conditions. The [plxcsharp](#plxcsharp) table
+below lists its spelling of each construct. See [plxcsharp.md](plxcsharp.md).
+
 ## Control flow
 
 | plpgsql | plxruby | plxphp | plxjs | plxpython3 | plxcobol |
@@ -114,6 +123,43 @@ scoping (Ruby method locals, JavaScript `var`, PHP function scope, Python
 function scope, COBOL `WORKING-STORAGE`). plpgsql's per-block `DECLARE` is not a
 separate construct; an exception block (`begin/rescue`, `try/catch`, `BEGIN-TRY`)
 provides the nested `BEGIN/EXCEPTION/END` structure sharing the function scope.
+
+## plxcsharp
+
+| plpgsql | plxcsharp |
+|---|---|
+| assignment (`:=`) | `x = e;` |
+| `IF`/`ELSIF`/`ELSE` | `if`/`else if`/`else` |
+| simple `CASE` | `switch`/`case`/`default` · `x switch { 1 => a, _ => b }` |
+| searched `CASE` | if/else · `x switch { < 0 => a, _ => b }` |
+| `LOOP` | `for (;;)` · `while (true)` |
+| `WHILE` | `while (c)` · `do { } while (c);` |
+| integer `FOR` | `for (int i = a; i < b; i++)` |
+| `FOR` over query | `foreach (var r in query(sql))` |
+| `FOR` over dynamic query | same, with bind arguments or `ident()`/`raw()` |
+| `FOREACH` over array | `foreach (int v in arr)` |
+| `EXIT` / `CONTINUE` | `break` / `continue` |
+| loop labels | not offered (C# has none) |
+| `RETURN` | `return e;` |
+| `RETURN NEXT` | `yield return e;` · `return_next();` |
+| `RETURN QUERY` | `return_query(sql)` |
+| `PERFORM` | `perform(sql)` |
+| `EXECUTE` (dynamic) | `execute(sql, a)` |
+| SQL / `SELECT INTO` | `var r = fetch_one(sql);` · `long n = fetch_one(sql);` · `fetch_one!` |
+| cursors `OPEN`/`FETCH`/`MOVE`/`CLOSE` | `open_cursor` · `fetch_from` · `move_cursor` · `close_cursor` |
+| `CALL` procedure | `call("p", a)` |
+| `COMMIT` / `ROLLBACK` | `commit()` / `rollback()` |
+| `RAISE` | `throw new Exception(m)` · `Console.WriteLine(m)` · `raise("notice", m)` |
+| `ASSERT` | `Debug.Assert(c, m)` · `assert(c, m)` |
+| exception handling | `try`/`catch (Exception e)`/`finally` |
+| a specific condition | `catch (DivideByZeroException e)` · `catch (PostgresException e) when (e.SqlState == "23505")` |
+| `GET DIAGNOSTICS` (`ROW_COUNT`) | `row_count()` |
+| `FOUND` | `found()` |
+| `GET STACKED DIAGNOSTICS` | `e.Message` · `e.SqlState` · `e.Detail` · `e.ConstraintName` · ... |
+| `CONSTANT` | `const int x = 5;` |
+| `%TYPE` / `%ROWTYPE` | a table name as the type (`orders r;`); no `%TYPE` |
+| trigger (`NEW`/`OLD`/`TG_`) | `NEW.col = e; return NEW;` |
+| nested block `DECLARE` | function-scoped |
 
 ## Notes
 
