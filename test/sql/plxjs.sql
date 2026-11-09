@@ -266,3 +266,11 @@ CREATE FUNCTION js_fin_srf() RETURNS SETOF int LANGUAGE plxjs AS $$
   emit 4;
 $$;
 SELECT * FROM js_fin_srf();
+-- a switch with no matching case and no default does nothing (plpgsql's CASE
+-- would raise case_not_found)
+CREATE FUNCTION js_sw_nodefault(x int) RETURNS int LANGUAGE plxjs AS $$
+  let r = 0;
+  switch (x) { case 1: r = 10; break; }
+  return r;
+$$;
+SELECT js_sw_nodefault(1), js_sw_nodefault(2);

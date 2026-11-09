@@ -304,3 +304,13 @@ CREATE FUNCTION rb_ensure_return(x int) RETURNS int LANGUAGE plxruby AS $$
   end
 $$;
 SELECT rb_ensure_return(4);
+-- a case with no matching when and no else does nothing
+CREATE FUNCTION rb_case_noelse(x int) RETURNS int LANGUAGE plxruby AS $$
+  r = 0
+  case x
+  when 1
+    r = 10
+  end
+  return r
+$$;
+SELECT rb_case_noelse(1), rb_case_noelse(2);
