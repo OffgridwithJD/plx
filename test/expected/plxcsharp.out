@@ -1020,7 +1020,7 @@ SELECT cs_fin(4), cs_fin(0);
 
 SELECT cs_fin(-1);
 ERROR:  n must not be negative
-CONTEXT:  PL/pgSQL function cs_fin(integer) line 18 at ASSERT
+CONTEXT:  PL/pgSQL function cs_fin(integer) line 23 at ASSERT
 SELECT * FROM cs_audit ORDER BY msg;
   msg  
 -------

@@ -587,8 +587,14 @@ for the caught variable `e`.
 ### Catching
 
 `try`/`catch`/`finally` becomes a plpgsql exception block. The `finally` block
-runs on every exit: normal completion, an error (which is raised again after
-it), and a `return`, `break` or `continue` out of the `try`.
+runs once on every exit: normal completion, an error, and a `return`, `break` or
+`continue` out of the `try`. After an error it runs and then raises the error
+again, with its SQLSTATE, message, detail, hint and the names of the objects it
+is about (schema, table, column, constraint, type); the `CONTEXT` of the raised
+error points at the re-raise, not the original statement. It does not run when
+the statement is cancelled (a query cancel or `statement_timeout`) or an
+`assert` fails, because `WHEN OTHERS` does not catch those two errors; for the
+same reason no `catch` clause catches them.
 
 | catch clause | plpgsql condition |
 |---|---|
