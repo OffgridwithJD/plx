@@ -6549,7 +6549,7 @@ s2_try(Ctx *cx, CsS2 *S, int ind)
 		cx->diag_mask = save_diag;
 		cx->exc_var = save_ev;
 		cx->exc_varlen = save_evl;
-		appendStringInfoSpaces(&arms, (ind + 1) * 2);
+		plx_indent(&arms, ind + 1);
 		appendStringInfo(&arms, "WHEN %s THEN\n", cond);
 		appendStringInfoString(&arms, pfx);
 		appendStringInfoString(&arms, hb);
@@ -6568,12 +6568,7 @@ s2_try(Ctx *cx, CsS2 *S, int ind)
 		if (term)
 			all = true;
 	}
-	plx_emit_try(cx, o, ind, body, nrescue, arms.data, ensure, fin);
-	/* each nesting level would otherwise keep a copy of everything inside it */
-	pfree(body);
-	pfree(arms.data);
-	if (ensure)
-		pfree(ensure);
+	plx_emit_try(cx, o, ind, body, nrescue, arms.data, ensure, fin);	/* frees them */
 	return all;
 }
 
